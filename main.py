@@ -24,13 +24,11 @@ async def get_products():
     conn = get_db()
     try:
         with conn.cursor() as cur:
-            cur.execute(
-                """
+            cur.execute("""
                 SELECT id, name, price, description, created_at
                 FROM video_cards
                 ORDER BY id
-                """
-            )
+                """)
             rows = cur.fetchall()
             return [{**dict(r), "price": float(r["price"])} for r in rows]
     finally:
