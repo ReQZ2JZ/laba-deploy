@@ -6,6 +6,7 @@ on:
 
 jobs:
   test:
+    name: Test with PostgreSQL
     runs-on: ubuntu-latest
 
     services:
@@ -17,29 +18,45 @@ jobs:
           POSTGRES_DB: eshop
         ports:
           - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U app -d eshop"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_USER: app
+      DB_PASSWORD: app
+      DB_NAME: eshop
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v4
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
           python-version: "3.13"
 
-      - run: pip install -r requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - run: |
+      - name: Init PostgreSQL
+        run: |
           docker run --rm --network host -e PGPASSWORD=app -v $PWD/scripts:/scripts postgres:17 \
           psql -h 127.0.0.1 -U app -d eshop -f /scripts/init_db.sql
 
-      - run: pytest -v
+      - name: Check formatting with Black
+        run: black --check .
 
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
+      - name: Syntax check
+        run: python -m py_compile main.py
 
-    steps:
-      - uses: actions/checkout@v4
-      - run: npm install -g @railway/cli
-      - run: railway up --service web
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      - name: Import app
+        run: python -c "import main; print('imported OK')"
+
+      - name: Run tests
+        run: pytest -v test_main.py
